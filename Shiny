@@ -1,0 +1,725 @@
+
+
+require(shiny)
+require(dplyr)
+require(highcharter)
+require(plotly)
+library(tidyr)
+library(plyr)
+library(rsconnect)
+rm(list=ls())
+
+
+# Loads the csv file into a dataframe
+df_grupo_contratos <- read.csv2('expedientes_count.csv')
+df_producto_contratos <- read.csv2('expedientes_count_product.csv')
+df_deuda_producto<-read.csv2('deuda_€_cobros_producto.csv')
+df_grupo_deuda<-read.csv2('deuda_cobros_grupo.csv')
+df_ticket_medio<-read.csv2('ticket_medio.csv',sep='')
+df_producto_kpi<-read.csv2('product_rpc.csv')
+df_grupo_kpi<-read.csv2('kpi_grupo.csv')
+df_entradas_producto<-read.csv2('entradas_product.csv',sep='')
+df_cobros_producto<-read.csv('cobros_product.csv',sep=';')
+df_cobros_grupo<-read.csv('cobros_grupo.csv',sep=';')
+
+
+
+
+
+df_ticket_medio$Date<-as.Date(df_ticket_medio$Date)
+df_ticket_medio$Date<-as.Date(df_ticket_medio$Date,format='%Y-%m-%d')
+
+df_entradas_producto$Date<-as.Date(df_entradas_producto$Date)
+df_entradas_producto$Date<-as.Date(df_entradas_producto$Date,format='%Y-%m-%d')
+
+df_producto_kpi$periodo<-as.Date(df_producto_kpi$periodo)
+df_producto_kpi$periodo<-as.Date(df_producto_kpi$periodo,format='%Y-%m-%d')
+
+df_grupo_kpi$periodo<-as.Date(df_grupo_kpi$periodo)
+df_grupo_kpi$periodo<-as.Date(df_grupo_kpi$periodo,format='%Y-%m-%d')
+
+df_cobros_producto$periodo<-as.Date(df_cobros_producto$periodo)
+df_cobros_producto$periodo<-as.Date(df_cobros_producto$periodo,format='%Y-%m-%d')
+
+# df_cobros_producto$efi_eur<-as.numeric(df_cobros_producto$efi_eur)
+# df_cobros_producto$efi_num<-as.numeric(df_cobros_producto$efi_num)
+
+df_cobros_grupo$periodo<-as.Date(df_cobros_grupo$periodo)
+df_cobros_grupo$periodo<-as.Date(df_cobros_grupo$periodo,format='%Y-%m-%d')
+
+# df_cobros_grupo$efi_eur<-as.numeric(df_cobros_grupo$efi_eur)
+# df_cobros_grupo$efi_num<-as.numeric(df_cobros_grupo$efi_num)
+
+df_grupo_contratos$frequency <- df_grupo_contratos$frequency * 100
+df_grupo_contratos$acc_frequency <- df_grupo_contratos$acc_frequency * 100
+
+df_grupo_deuda$frequency <- df_grupo_deuda$frequency * 100
+df_grupo_deuda$acc_frequency <- df_grupo_deuda$acc_frequency * 100
+
+df_producto_contratos$frequency <- df_producto_contratos$frequency * 100
+df_producto_contratos$acc_frequency <- df_producto_contratos$acc_frequency * 100
+
+df_deuda_producto$frequency <- df_deuda_producto$frequency * 100
+df_deuda_producto$acc_frequency <- df_deuda_producto$acc_frequency * 100
+
+
+
+ui <- navbarPage('Client X',
+                 navbarMenu('By Product',
+                            tabPanel('Number Contracts by Product',
+                                      # represent the bars chart
+                                     fluidRow(column=4, highchartOutput('plot1')),
+                                                # represent the treemap
+                                     fluidRow(column=8,
+                                              sidebarLayout(
+                                                           sidebarPanel(
+                                                    # We're creating a drop down list with the neighborhoods
+                                                             selectInput('periodo', 'Month: ', df_producto_contratos$periodo)
+                                                           ),
+                                                           mainPanel(highchartOutput('plot2'))
+                                                         )
+                                                )),
+                               tabPanel('Debt Amount By Product',
+                                        fluidRow(column=4,highchartOutput('plot5')),
+                                        fluidRow(column=8,
+                                                 sidebarLayout(
+                                                 sidebarPanel(
+                                                             # We're creating a drop down list with the neighborhoods
+                                                    selectInput('periodo2', 'Month: ', df_deuda_producto$periodo)
+                                                           ),
+                                               mainPanel(highchartOutput('plot6'))
+                                                         ))),
+                                       tabPanel('By Month',
+                                                tabPanel('Pies',
+                                                  fluidRow(column=4,
+                                                                  sidebarLayout(
+                                                                    sidebarPanel(
+                                                                      # We're creating a drop down list with the neighborhoods
+                                                                      selectInput('periodo_pie2', 'Month: ', df_deuda_producto$periodo)
+                                                                    ),
+                                                                    mainPanel(plotlyOutput('plot_pie3'))
+                                                                  )),
+                                                         fluidRow(column=2, 
+                                                                  mainPanel(plotlyOutput('plot_pie4'))
+                                                                  # sidebarLayout(
+                                                                  #   sidebarPanel(
+                                                                  #     selectInput('periodo_pie','Periodo:', df_grupo_contratos$periodo)
+                                                                  #   )
+                                                         )))),
+                                                
+                 # HERE STARTS THE SECOND TAB ---- BY GROUP
+                 navbarMenu('By Group',
+                            tabPanel('Num Contracts by Group',
+                                     fluidRow(column=4, highchartOutput('plot4')),
+                                     fluidRow(column=8,
+                                              sidebarLayout(
+                                                sidebarPanel(
+                                                  # We're creating a drop down list with the neighborhoods
+                                                  selectInput('periodo1', 'Month: ', df_deuda_producto$periodo)
+                                                ),
+                                                mainPanel(highchartOutput('plot3'))
+                                              ))),
+                            tabPanel('Debt Amount By Group',
+                                     fluidRow(column=4,highchartOutput('plot8')),
+                                     fluidRow(column=8,
+                                              sidebarLayout(
+                                                sidebarPanel(
+                                                  # We're creating a drop down list with the neighborhoods
+                                                  selectInput('periodo3', 'Month: ', df_deuda_producto$periodo)
+                                                ),
+                                                mainPanel(highchartOutput('plot7'))
+                                              ))),
+                 # HERE STARTS THE SECOND TAB ---- BY GROUP
+                 
+                 tabPanel('By Month',
+                            tabPanel('Pie',
+                                     fluidRow(column=4,
+                                              sidebarLayout(
+                                                sidebarPanel(
+                                                  # We're creating a drop down list with the neighborhoods
+                                                  selectInput('periodo_pie', 'Month: ', df_deuda_producto$periodo)
+                                                ),
+                                                mainPanel(plotlyOutput('plot_pie'))
+                                              )),
+                                     fluidRow(column=2, 
+                                              mainPanel(plotlyOutput('plot_pie2'))
+                                              # sidebarLayout(
+                                              #   sidebarPanel(
+                                              #     selectInput('periodo_pie','Periodo:', df_grupo_contratos$periodo)
+                                              #   )
+                                              )))),
+                 navbarMenu('Average Debt Ticket & Stock',
+                            tabPanel('Average Debt Ticket & Stock',
+                                     fluidRow(column=8,
+                                     sidebarLayout(
+                                     sidebarPanel(
+                                       sliderInput("year",
+                                                   "Dates:",
+                                                   min = as.Date("2018-02-01","%Y-%m-%d"),
+                                                   max = as.Date("2019-06-01","%Y-%m-%d"),
+                                                   value=as.Date("2018-12-01"),
+                                                   timeFormat="%Y-%m-%d"))
+                                     ,
+                                     mainPanel(highchartOutput('line_chart')))),
+                                     fluidRow(column=4,
+                                              sidebarLayout(
+                                                sidebarPanel(
+                                                  sliderInput("year1",
+                                                              "Dates:",
+                                                              min = as.Date("2018-02-01","%Y-%m-%d"),
+                                                              max = as.Date("2019-06-01","%Y-%m-%d"),
+                                                              value=as.Date("2018-12-01"),
+                                                              timeFormat="%Y-%m-%d" )),
+                                                mainPanel(highchartOutput('entradas_line_chart')))))),
+                 navbarMenu("KPI's",
+                            tabPanel("KPI's",fluidRow(column=8,
+                                     sidebarLayout(
+                                       sidebarPanel(
+                                         selectInput('productoinput','Product:',
+                                                     choices=c('Auto','Consumo','Resto'))),
+                                       mainPanel(plotlyOutput('line_chart_kpi')))),
+                                     fluidRow(column=4,
+                                              sidebarLayout(
+                                                sidebarPanel(
+                                                  selectInput('grupoinput','Group:',
+                                                              choices=c('M1','M2','M3'))),
+                                                  mainPanel(plotlyOutput('line_grupo_kpi'))
+                 )))),
+                 navbarMenu("Effectiveness",
+                            tabPanel("Effectiveness",fluidRow(column=8,
+                                                      sidebarLayout(
+                                                        sidebarPanel(
+                                                          selectInput('eficiap','Product:',
+                                                                      choices=c('Auto','Consumo','Resto'))),
+                                                        mainPanel(plotlyOutput('eficia_p')))),
+                                     fluidRow(column=4,
+                                              sidebarLayout(
+                                                sidebarPanel(
+                                                  selectInput('eficiag','Group:',
+                                                              choices=c('M1','M2','M3'))),
+                                                mainPanel(plotlyOutput('eficia_g'))
+                                              )))))
+                                              
+                                     
+                                             
+
+
+
+
+server <- function(input, output) {
+  # Preprocessing original data to fit the tree map by product contracts
+  treemap.data1<- reactive({
+    ix1<-which(df_producto_contratos$periodo== input$periodo )
+    tmp1<-
+      (t(df_producto_contratos[ix1, c('Auto_proportion','Consumo_proportion','Resto_proportion')]))
+    periodo.count<-as.vector(tmp1)
+    tmp.df1<-data.frame('periodo'=c('Auto','Consumo','Resto'),'count'=periodo.count*100)
+    return(tmp.df1)
+  })
+  # Preprocessing original data to fit the tree map debt by product
+  treemap.data2<- reactive({
+    ix2<-which(df_deuda_producto$periodo== input$periodo2 )
+    tmp2<-
+      (t(df_deuda_producto[ix2, c('Auto_proportion','Consumo_proportion','Resto_proportion')]))
+    periodo.count<-as.vector(tmp2)
+    tmp.df2<-data.frame('periodo'=c('Auto','Consumo','Resto'),'count'=periodo.count*100)
+    return(tmp.df2)
+  })
+  # Preprocessing original data to fit the tree map by group
+  treemap.data <- reactive({
+    ix<-which(df_grupo_contratos$periodo== input$periodo1 )
+    tmp<-
+      (t(df_grupo_contratos[ix, c('M1_proportion','M2_proportion','M3_proportion')]))
+    periodo.count<-as.vector(tmp)
+    tmp.df<-data.frame('periodo'=c('M1','M2','M3'),'count'=periodo.count*100)
+    return(tmp.df)
+  })
+  # Preprocessing original data to fit the tree map DEBT group
+  treemap.data3 <- reactive({
+    ix3<-which(df_grupo_deuda$periodo== input$periodo3 )
+    tmp3<-
+      (t(df_grupo_deuda[ix3, c('M1_proportion','M2_proportion','M3_proportion')]))
+    periodo.count<-as.vector(tmp3)
+    tmp.df3<-data.frame('periodo'=c('M1','M2','M3'),'count'=periodo.count*100)
+    return(tmp.df3)
+  })
+  
+  # DONUT CHARTS
+  piechart.data_grupo_deuda <- reactive({
+      ix6<-which(df_grupo_deuda$periodo== input$periodo_pie )
+    
+    lisbon.dist<-apply(df_grupo_deuda[ ix6, c('M1','M2','M3')],
+                       # 2 is row
+                       2, function(r)sum(r,na.rm=T))
+    
+    # tmp1<-(t(df(ix1,c('house_count','room_count','shared_room_count'))))
+    # lisbon.dist<-as.vector(tmp1)
+    tmp.df1<-data.frame('type'=c('M1','M2','M3'),
+                        'count'=as.vector(lisbon.dist))
+    
+    return(tmp.df1)
+  })
+  
+  # DONUT GRUPO CONTRATOS
+  
+  piechart.data_grupo_contratos <- reactive({
+    ix6<-which(df_grupo_contratos$periodo== input$periodo_pie )
+    
+    lisbon.dist<-apply(df_grupo_contratos[ ix6, c('M1','M2','M3')],
+                       # 2 is row
+                       2, function(r)sum(r,na.rm=T))
+    
+    # tmp1<-(t(df(ix1,c('house_count','room_count','shared_room_count'))))
+    # lisbon.dist<-as.vector(tmp1)
+    tmp.df1<-data.frame('type'=c('M1','M2','M3'),
+                        'count'=as.vector(lisbon.dist))
+    
+    return(tmp.df1)
+  })
+  
+  piechart.data_producto_deuda <- reactive({
+    ix7<-which(df_deuda_producto$periodo== input$periodo_pie2 )
+    
+    lisbon.dist<-apply(df_deuda_producto[ ix7, c('Auto','Consumo','Resto')],
+                       # 2 is row
+                       2, function(r)sum(r,na.rm=T))
+    
+    # tmp1<-(t(df(ix1,c('house_count','room_count','shared_room_count'))))
+    # lisbon.dist<-as.vector(tmp1)
+    tmp.df7<-data.frame('type'=c('Auto','Consumo','Resto'),
+                        'count'=as.vector(lisbon.dist))
+    
+    return(tmp.df7)
+  })
+  
+  
+  
+  piechart.data_producto_contratos <- reactive({
+    ix7<-which(df_producto_contratos$periodo== input$periodo_pie2 )
+    
+    lisbon.dist<-apply(df_producto_contratos[ ix7, c('Auto','Consumo','Resto')],
+                       # 2 is row
+                       2, function(r)sum(r,na.rm=T))
+    
+    # tmp1<-(t(df(ix1,c('house_count','room_count','shared_room_count'))))
+    # lisbon.dist<-as.vector(tmp1)
+    tmp.df8<-data.frame('type'=c('Auto','Consumo','Resto'),
+                        'count'=as.vector(lisbon.dist))
+    
+    return(tmp.df8)
+  })
+  
+  
+  
+  # LINE CHART RPC
+  
+  line.chart.rpc <- reactive({
+    ix.9<-which(df_producto_kpi$rpc==input$productoinput)
+    tmp.df9<-df_pro%>%
+      filter(df_producto_kpi,producto %in% ix9)
+    return(tmp.df9)
+  })
+  
+  
+  # Bar chart by group
+  output$plot1 <- renderHighchart({
+    # ###################################################################
+    # Here we're configuring the tooltip
+    x <- c('Auto','Consumo','Resto', "Count")
+    
+    y <- sprintf("{point.%s}: .2f", 
+                 c('Auto','Consumo','Resto', "count"))
+    
+    # Here we are creating the tooltip TEMPLATE
+    tltip.str <- "<strong><i>{point.periodo}</i></strong><br>
+                  <strong>Auto</strong>: {point.Auto}<br>
+                  <strong>Consumo</strong>: {point.Consumo}<br>
+                  <strong>Resto</strong>: {point.Resto}<br>
+                  <strong style=\"color:#F00;\">
+                    Total</strong>: {point.count: .0f}"
+    #
+    ########################################################################
+    
+    # Calculated the maximum frequency
+    max_freq <- max(df_producto_contratos$count)
+    
+    # Bar chart by M
+    highchart() %>%
+      hc_add_series(df_producto_contratos, "column", 
+                    hcaes(y = count), name = 'Contracts') %>%
+      hc_yAxis(
+        title = list(text = 'Number of Contracts'),
+        labels = list(format = '{value}'),
+        max = max_freq
+      ) %>%
+      hc_xAxis(categories = df_producto_contratos$periodo) %>%
+      hc_title(text='Bar Chart Contracts by Product',style=list(fontsize='16px'))%>%
+      hc_tooltip(useHTML = TRUE, headerFormat = '', pointFormat = tltip.str)
+    
+  })
+  
+  # Tree map by product
+  output$plot2<-renderHighchart({
+    # creting a template
+    tlp.str<-'<i>{point.count: %.1f}</i>'
+    # here we'll be creating the tree map chart
+    treemap.data1()%>%
+      # this is high chart aesthetics: binding data with visual elemets
+      hchart('treemap',hcaes(x=periodo,value=count, color=count))%>%
+      hc_title(text='Tree Map Contracts by Product',style=list(fontsize='16px'))%>%
+      hc_tooltip(pointFormat=tlp.str)%>%
+      hc_add_theme(hc_theme_economist())
+  })
+  
+  # tree map by group
+  output$plot3<-renderHighchart({
+    # creting a template
+    tlp.str<-'<i>{point.count: %.1f}</i>'
+    # here we'll be creating the tree map chart
+    treemap.data()%>%
+      # this is high chart aesthetics: binding data with visual elemets
+      hchart('treemap',hcaes(x=periodo,value=count, color=count))%>%
+      hc_title(text='Tree Map Contracts by Group',style=list(fontsize='16px'))%>%
+      hc_tooltip(pointFormat=tlp.str)%>%
+      hc_add_theme(hc_theme_economist())
+    
+    
+  })
+  
+  # Calculating barchart and tree debt
+  output$plot5 <- renderHighchart({
+    # ###################################################################
+    # Here we're configuring the tooltip
+    x <- c('Auto','Consumo','Resto', "Count")
+    
+    y <- sprintf("{point.%s}: .2f", 
+                 c('Auto','Consumo','Resto', "count"))
+    
+    # Here we are creating the tooltip TEMPLATE
+    tltip.str <- "<strong><i>{point.periodo}</i></strong><br>
+                  <strong>Auto</strong>: {point.Auto}<br>
+                  <strong>Consumo</strong>: {point.Consumo}<br>
+                  <strong>Resto</strong>: {point.Resto}<br>
+                  <strong style=\"color:#F00;\">
+                    Total</strong>: {point.count: .0f}"
+    #
+    ########################################################################
+    
+    # Calculated the maximum frequency
+    max_freq <- max(df_deuda_producto$count)
+    
+    # Bar chart by M
+    highchart() %>%
+      hc_add_series(df_deuda_producto, "column", 
+                    hcaes(y = count), name = 'Debt Amount') %>%
+      hc_yAxis(
+        title = list(text = 'Number of Contracts'),
+        labels = list(format = '{value}'),
+        max = max_freq
+      ) %>%
+      hc_xAxis(categories = df_deuda_producto$periodo) %>%
+      hc_title(text='Bar Chart Debt by Product',style=list(fontsize='16px'))%>%
+      hc_tooltip(useHTML = TRUE, headerFormat = '', pointFormat = tltip.str)
+    
+  })
+  
+  # Tree map by debt product
+  output$plot6<-renderHighchart({
+    # creting a template
+    tlp.str<-'<i>{point.count: %.1f}</i>'
+    # here we'll be creating the tree map chart
+    treemap.data2()%>%
+      # this is high chart aesthetics: binding data with visual elemets
+      hchart('treemap',hcaes(x=periodo,value=count, color=count))%>%
+      hc_title(text='Tree Map Debt by Product',style=list(fontsize='16px'))%>%
+      hc_tooltip(pointFormat=tlp.str)%>%
+      hc_add_theme(hc_theme_economist())
+  })
+  
+  
+  # Bar chart by Group
+  output$plot4 <- renderHighchart({
+    # ###################################################################
+    # Here we're configuring the tooltip
+    x <- c("M1", "M2", "M3", "Count")
+    
+    y <- sprintf("{point.%s}: .0f", 
+                 c("M1", "M2", "M3", "count"))
+    
+    # Here we are creating the tooltip TEMPLATE
+    tltip.str <- "<strong><i>{point.periodo}</i></strong><br>
+                  <strong>M1</strong>: {point.M1}<br>
+                  <strong>M2</strong>: {point.M2}<br>
+                  <strong>M3</strong>: {point.M3}<br>
+                  <strong style=\"color:#F00;\">
+                    Total</strong>: {point.count: .0f}"
+    #
+    ########################################################################
+    
+    # Calculated the maximum frequency
+    max_freq <- max(df_grupo_contratos$count)
+    
+    # Bar chart by M
+    highchart() %>%
+      hc_add_series(df_grupo_contratos, "column", 
+                    hcaes(y = count), name = 'Contracts') %>%
+      hc_yAxis(
+        title = list(text = 'Number of Contracts'),
+        labels = list(format = '{value}'),
+        max = max_freq
+      ) %>%
+      hc_xAxis(categories = df_grupo_contratos$periodo) %>%
+      hc_title(text='Bar Chart Contracts by Group',style=list(fontsize='16px'))%>%
+      hc_tooltip(useHTML = TRUE, headerFormat = '', pointFormat = tltip.str)
+    
+  })
+  
+  # Bar chart by Group
+  output$plot8 <- renderHighchart({
+    # ###################################################################
+    # Here we're configuring the tooltip
+    x <- c("M1", "M2", "M3", "Count")
+    
+    y <- sprintf("{point.%s}: .0f", 
+                 c("M1", "M2", "M3", "count"))
+    
+    # Here we are creating the tooltip TEMPLATE
+    tltip.str <- "<strong><i>{point.periodo}</i></strong><br>
+                  <strong>M1</strong>: {point.M1}<br>
+                  <strong>M2</strong>: {point.M2}<br>
+                  <strong>M3</strong>: {point.M3}<br>
+                  <strong style=\"color:#F00;\">
+                    Total</strong>: {point.count: .0f}"
+    #
+    ########################################################################
+    
+    # Calculated the maximum frequency
+    max_freq <- max(df_grupo_deuda$count)
+    
+    # Bar chart by M
+    highchart() %>%
+      hc_add_series(df_grupo_deuda, "column", 
+                    hcaes(y = count), name = 'Contracts') %>%
+      hc_yAxis(
+        title = list(text = 'Number of Contracts'),
+        labels = list(format = '{value}'),
+        max = max_freq
+      ) %>%
+      hc_xAxis(categories = df_grupo_deuda$periodo) %>%
+      hc_title(text='Bar Chart Debt by Group',style=list(fontsize='16px'))%>%
+      hc_tooltip(useHTML = TRUE, headerFormat = '', pointFormat = tltip.str)
+    
+  })
+  
+  # debt tree map by group
+  output$plot7<-renderHighchart({
+    # creting a template
+    tlp.str<-'<i>{point.count: %.1f}</i>'
+    # here we'll be creating the tree map chart
+    treemap.data3()%>%
+      # this is high chart aesthetics: binding data with visual elemets
+      hchart('treemap',hcaes(x=periodo,value=count, color=count))%>%
+      hc_title(text='Tree Map Debt by Group',style=list(fontsize='16px'))%>%
+      hc_tooltip(pointFormat=tlp.str)%>%
+      hc_add_theme(hc_theme_economist())
+    
+    
+  })
+  
+  output$plot_pie<-renderPlotly({
+    
+    piechart.data_grupo_deuda() %>%
+      plot_ly(labels = ~type, values = ~count) %>%
+      add_pie(hole = 0.6) %>%
+      layout(title = "Donut Debt Group Chart",  showlegend = F,
+             xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+             yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+    
+      
+    
+  })
+  
+  output$plot_pie2<-renderPlotly({
+    
+    piechart.data_grupo_contratos() %>%
+      plot_ly(labels = ~type, values = ~count) %>%
+      add_pie(hole = 0.6) %>%
+      layout(title = "Donut Contracts Group Chart",  showlegend = F,
+             xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+             yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+    
+    
+  })
+  
+  output$plot_pie3<-renderPlotly({
+    
+    piechart.data_producto_deuda() %>%
+      plot_ly(labels = ~type, values = ~count) %>%
+      add_pie(hole = 0.6) %>%
+      layout(title = "Donut Debt Product Chart",  showlegend = F,
+             xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+             yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+    
+    
+  })
+  
+  output$plot_pie4<-renderPlotly({
+    
+    piechart.data_producto_contratos() %>%
+      plot_ly(labels = ~type, values = ~count) %>%
+      add_pie(hole = 0.6) %>%
+      layout(title = "Donut Contracts Product Chart",  showlegend = F,
+             xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+             yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+    
+    
+  })
+  
+  
+  
+  
+  
+  
+  
+
+
+# LINE CHART TICKET MEDIO
+output$line_chart<-renderHighchart({
+  
+
+  hchart(df_ticket_medio[df_ticket_medio$Date>=input$year,],
+         "line",
+         hcaes(
+         x=Date,
+         y=ticket_medio,
+         group=estrategia))%>%
+         hc_title(text='Average Debt Ticket ')
+  
+  })
+
+# LINE CHART ENTRADAS
+output$entradas_line_chart<-renderHighchart({
+  
+  
+  hchart(df_entradas_producto[df_entradas_producto$Date>=input$year1,],
+         "line",
+         hcaes(
+           x=Date,
+           y=num,
+           group=estrategia))%>%
+    hc_title(text=' Daily Stock')
+    
+  
+  
+  
+
+  
+})
+
+### LINE CHART KPI'S ####
+
+output$line_chart_kpi<-renderPlotly({
+  
+
+  
+  
+  plot_ly(df_producto_kpi[df_producto_kpi$producto==input$productoinput,],
+         x=~periodo,
+         y = ~rpc,
+         type='scatter',
+         mode='lines',
+         name='rpc')%>%
+    add_lines(y=~ptp,
+              type='scatter',
+              mode='lines',
+              name='ptp')%>%
+    add_lines(y=~kp,
+             type='scatter',
+             mode='lines',
+             name='kp')
+    
+
+})
+
+
+
+output$line_grupo_kpi<-renderPlotly({
+  
+  
+  
+  
+  plot_ly(df_grupo_kpi[df_grupo_kpi$m==input$grupoinput,],
+          x=~periodo,
+          y = ~rpc,
+          type='scatter',
+          mode='lines',
+          name='rpc')%>%
+    add_lines(y=~ptp,
+              type='scatter',
+              mode='lines',
+              name='ptp')%>%
+    add_lines(y=~kp,
+              type='scatter',
+              mode='lines',
+              name='kp')
+  
+  
+})
+
+output$eficia_p<-renderPlotly({
+  
+  plot_ly(df_cobros_producto[df_cobros_producto$producto==input$eficiap,],
+          x=~periodo,
+          y = ~efi_eur,
+          type='scatter',
+          mode='lines',
+          name='effectiveness_eur')%>%
+    add_lines(y=~efi_num,
+              type='scatter',
+              mode='lines',
+              name='effectiveness_num')
+    
+  
+  
+  
+  
+  
+})
+
+
+output$eficia_g<-renderPlotly({
+  
+  plot_ly(df_cobros_grupo[df_cobros_grupo$m==input$eficiag,],
+          x=~periodo,
+          y = ~efi_eur,
+          type='scatter',
+          mode='lines',
+          name='effectiveness_eur')%>%
+    add_lines(y=~efi_num,
+              type='scatter',
+              mode='lines',
+              name='effectiveness_num')
+  
+  
+  
+  
+  
+  
+})
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+shinyApp(ui, server)
+
+
